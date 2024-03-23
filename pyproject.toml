@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "nonogram"
+version = "0.1.0"
+description = "Solves nonograms by constraint satisfaction"
+authors = ["Saul Reynolds-Haertle <saul@saulrh.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+rich = "^13.7.1"
+cpmpy = "^0.9.19"
+click = "^8.1.7"
+beautifulsoup4 = "^4.12.3"
+lxml = "^5.1.0"
+requests = "^2.31.0"
+
+[tool.poetry.scripts]
+solve_nonogram = "nonogram.solver:main"
+get_nonogram = "nonogram.get_puzzle:main"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
