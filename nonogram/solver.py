@@ -13,6 +13,9 @@ from nonogram import game
 from nonogram import xmlformat
 
 
+MAX_SOLUTIONS = 1000
+
+
 @dataclasses.dataclass
 class Instance:
     puzzle: game.Puzzle
@@ -72,7 +75,7 @@ def build(puzzle: game.Puzzle):
     return instance
 
 
-def print_solution(instance):
+def print_solution(stream, instance):
     for row_idx, row_hints in enumerate(instance.puzzle.hints[game.Dim.ROW]):
         for col_idx, col_hints in enumerate(instance.puzzle.hints[game.Dim.COL]):
             row_variables = [instance.variables[game.Dim.ROW, row_idx, i] for i in range(len(row_hints))]
@@ -81,15 +84,24 @@ def print_solution(instance):
             col_hint_covers = any(((cv.value() + ch) > row_idx) & (row_idx >= cv.value()) for cv, ch in zip(col_variables, col_hints))
 
             if row_hint_covers:
-                sys.stdout.write("X")
+                stream.write("█")
             else:
-                sys.stdout.write(".")
-        sys.stdout.write("\n")
+                stream.write(" ")
+        stream.write("\n")
+
+
+def make_save_solutions_cb(output_file, instance):
+    def save_solutions_cb():
+        print_solution(output_file, instance)
+        output_file.write("\n")
+        output_file.write("\n")
+    return save_solutions_cb
     
 
 @click.command
-@click.argument('puzzle', type=click.File())
-def main(puzzle_file):
+@click.argument('puzzle_file', type=click.File())
+@click.option('--save_solutions_file', type=click.File(mode="w"))
+def main(puzzle_file, save_solutions_file=None):
     puzzle = xmlformat.load(puzzle_file.read())
     print(f"Puzzle of size {puzzle.rows} x {puzzle.cols}, solving...")
     time_start = datetime.datetime.now(tz=datetime.UTC)
@@ -101,37 +113,50 @@ def main(puzzle_file):
         raise RuntimeError("No solution found")
     time_solve_done = datetime.datetime.now(tz=datetime.UTC)
     print(f"Solve done, took {time_solve_done - time_start}")
-    print_solution(instance)
+    print_solution(sys.stdout, instance)
+
     print(f"Counting solutions...")
-    number_of_solutions = instance.model.solveAll()
+    if save_solutions_file:
+        cb = make_save_solutions_cb(
+            save_solutions_file,
+            instance,
+        )
+    else:
+        cb = None
+    number_of_solutions = instance.model.solveAll(
+        display=cb,
+        solution_limit=MAX_SOLUTIONS,
+    )
     time_proof_done = datetime.datetime.now(tz=datetime.UTC)
     if number_of_solutions == 1:
         color = "green"
-    else:
+    elif number_of_solutions == MAX_SOLUTIONS:
         color = "red"
-    print(f"[{color}]Puzzle has {number_of_solutions} solutions")
+    else:
+        color = "yellow"
+    print(f"[{color}]Found {number_of_solutions} solutions")
     print(f"Proof done, took {time_proof_done - time_solve_done}")
 
 
 @click.command
 def benchmark():
-    out = csv.DictWriter(sys.stdout, fieldnames=["puzzle_id", "n_solutions", "time_taken"])
+    out = csv.DictWriter(sys.stdout, fieldnames=["puzzle_id", "unique", "time_taken"])
     out.writeheader()
 
     for p in pathlib.Path('puzzles').iterdir():
         puzzle = xmlformat.load(p.read_text())
         time_start = datetime.datetime.now(tz=datetime.UTC)
         instance = build(puzzle)
-        number_of_solutions = instance.model.solveAll()
+        number_of_solutions = instance.model.solveAll(solution_limit=2, time_limit=30 * 60)
         time_end = datetime.datetime.now(tz=datetime.UTC)
 
         out.writerow({
             'puzzle_id': p,
-            "n_solutions": number_of_solutions,
+            "unique": number_of_solutions == 1,
             "time_taken": time_end - time_start,
         })
 
-    
+
 
 
 if __name__ == "__main__":
