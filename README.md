@@ -5,7 +5,7 @@ nonogram solver in python based on CPMpy
 This project uses [poetry](https://python-poetry.org/). Invoke the
 following to obtain dependencies:
 
-```python
+```bash
 poetry install
 ```
 
@@ -16,7 +16,7 @@ Run the following to fetch a copy of the puzzle to your local disk,
 where the number at the end is the ID of the puzzle you grabbed in the
 previous step:
 
-```python
+```bash
 poetry run get_nonogram 1
 ```
 
@@ -24,7 +24,7 @@ This will create an XML file in the `puzzles` directory.
 
 Run the following to solve a nonogram:
 
-```python
+```bash
 poetry run solve_nonogram puzzles/1.xml
 ```
 
