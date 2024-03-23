@@ -34,3 +34,10 @@ Can only handle monochrome (black-and-white) puzzles, no color support
 yet.
 
 Can only accept puzzles in the XML format that webpbn xml format.
+
+# Acknowledgments
+
+Thanks to webpbn and its users for providing the problem instances in
+the `puzzles/` directory. Having a set of instances whose designers
+have given permission for redistribution makes this project a lot
+easier.
