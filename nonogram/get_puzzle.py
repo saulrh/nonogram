@@ -1,9 +1,16 @@
 import requests
 import click
+import os
 
 @click.command
 @click.argument("puzzle_id", type=int)
 def main(puzzle_id):
+    try:
+        os.mkdir('puzzles')
+    except FileExistsError:
+        # we don't care if it already exists
+        pass
+
     r = requests.post(
         f'https://www.webpbn.com/export.cgi/webpbn{puzzle_id:06d}',
         data={
