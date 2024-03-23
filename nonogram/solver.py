@@ -7,6 +7,7 @@ import itertools
 import sys
 import datetime
 import dataclasses
+import csv
 
 from nonogram import game
 from nonogram import xmlformat
@@ -110,6 +111,25 @@ def main(puzzle_file):
         color = "red"
     print(f"[{color}]Puzzle has {number_of_solutions} solutions")
     print(f"Proof done, took {time_proof_done - time_solve_done}")
+
+
+@click.command
+def benchmark():
+    out = csv.DictWriter(sys.stdout, fieldnames=["puzzle_id", "n_solutions", "time_taken"])
+    out.writeheader()
+
+    for p in pathlib.Path('puzzles').iterdir():
+        puzzle = xmlformat.load(p.read_text())
+        time_start = datetime.datetime.now(tz=datetime.UTC)
+        instance = build(puzzle)
+        number_of_solutions = instance.model.solveAll()
+        time_end = datetime.datetime.now(tz=datetime.UTC)
+
+        out.writerow({
+            'puzzle_id': p,
+            "n_solutions": number_of_solutions,
+            "time_taken": time_end - time_start,
+        })
 
     
 

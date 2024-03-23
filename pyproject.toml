@@ -17,6 +17,7 @@ requests = "^2.31.0"
 [tool.poetry.scripts]
 solve_nonogram = "nonogram.solver:main"
 get_nonogram = "nonogram.get_puzzle:main"
+benchmark_nonogram = "nonogram.solver:benchmark"
 
 
 [build-system]
