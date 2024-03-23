@@ -1,4 +1,6 @@
 import cpmpy
+import pathlib
+from rich import print
 import cpmpy.expressions.variables
 import click
 import itertools
@@ -86,8 +88,8 @@ def print_solution(instance):
 
 @click.command
 @click.argument('puzzle', type=click.File())
-def main(puzzle):
-    puzzle = xmlformat.load(puzzle.read())
+def main(puzzle_file):
+    puzzle = xmlformat.load(puzzle_file.read())
     print(f"Puzzle of size {puzzle.rows} x {puzzle.cols}, solving...")
     time_start = datetime.datetime.now(tz=datetime.UTC)
     instance = build(puzzle)
@@ -99,6 +101,15 @@ def main(puzzle):
     time_solve_done = datetime.datetime.now(tz=datetime.UTC)
     print(f"Solve done, took {time_solve_done - time_start}")
     print_solution(instance)
+    print(f"Counting solutions...")
+    number_of_solutions = instance.model.solveAll()
+    time_proof_done = datetime.datetime.now(tz=datetime.UTC)
+    if number_of_solutions == 1:
+        color = "green"
+    else:
+        color = "red"
+    print(f"[{color}]Puzzle has {number_of_solutions} solutions")
+    print(f"Proof done, took {time_proof_done - time_solve_done}")
 
     
 
