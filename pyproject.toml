@@ -13,12 +13,19 @@ click = "^8.1.7"
 beautifulsoup4 = "^4.12.3"
 lxml = "^5.1.0"
 requests = "^2.31.0"
+setuptools = "^80.9.0"
+more-itertools = "^10.7.0"
 
 [tool.poetry.scripts]
-solve_nonogram = "nonogram.solver:main"
+solve_nonogram = "nonogram.cli:main"
 get_nonogram = "nonogram.get_puzzle:main"
-benchmark_nonogram = "nonogram.solver:benchmark"
+benchmark_nonogram = "nonogram.cli:benchmark"
+random_nonogram = "nonogram.cli:probability"
 
+
+[tool.poetry.group.dev.dependencies]
+python-lsp-server = "^1.12.2"
+pylsp-rope = "^0.1.17"
 
 [build-system]
 requires = ["poetry-core"]
