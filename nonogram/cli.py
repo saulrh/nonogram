@@ -125,7 +125,7 @@ def _solve_random_nonograms(
         contextlib.closing(solution_db.SolutionDb()) as db,
     ):
         existing_data = db.get_stats()
-        init_total = db.get_solution_count() or 0
+        init_total = db.get_solution_count()
         solve_task = prog.add_task(
             "Solving...", completed=init_total, start=True, total=None
         )

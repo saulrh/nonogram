@@ -61,7 +61,7 @@ class SolutionDb:
     def get_solution_count(self) -> int:
         cur = self.con.cursor()
         res = cur.execute("select sum(total) from solves")
-        return res.fetchone()[0]
+        return res.fetchone()[0] or 0
 
     def add_solutions(
         self,
