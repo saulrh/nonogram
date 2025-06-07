@@ -20,12 +20,16 @@ more-itertools = "^10.7.0"
 solve_nonogram = "nonogram.cli:main"
 get_nonogram = "nonogram.get_puzzle:main"
 benchmark_nonogram = "nonogram.cli:benchmark"
-random_nonogram = "nonogram.cli:probability"
+random_nonogram = "nonogram.cli:random_nonogram"
+continue_random_nonogram = "nonogram.cli:continue_random_nonogram"
 
 
 [tool.poetry.group.dev.dependencies]
 python-lsp-server = "^1.12.2"
 pylsp-rope = "^0.1.17"
+pytype = "^2024.10.11"
+mypy = "^1.16.0"
+types-requests = "^2.32.0.20250602"
 
 [build-system]
 requires = ["poetry-core"]

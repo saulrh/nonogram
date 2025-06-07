@@ -48,7 +48,7 @@ class Puzzle:
         chars[col_clue_height][row_clue_width] = "+"
 
         if self.solution:
-            for row_idx, row in enumerate(solution):
+            for row_idx, row in enumerate(self.solution):
                 for col_idx, value in enumerate(row):
                     if value:
                         chars[row_idx + col_clue_height + 1][

@@ -11,6 +11,8 @@ import rich.text
 import click
 import sys
 import datetime
+import contextlib
+import itertools
 
 from nonogram import generate
 from nonogram import xmlformat
@@ -26,7 +28,7 @@ def lowpriority():
 
 def make_save_solutions_cb(output_file, instance):
     def save_solutions_cb():
-        print_solution(output_file, instance)
+        solver.print_solution(output_file, instance)
         output_file.write("\n")
         output_file.write("\n")
 
@@ -48,7 +50,7 @@ def main(puzzle_file, save_solutions_file=None):
         raise RuntimeError("No solution found")
     time_solve_done = datetime.datetime.now(tz=datetime.UTC)
     print(f"Solve done, took {time_solve_done - time_start}")
-    print_solution(sys.stdout, instance)
+    solver.print_solution(sys.stdout, instance)
 
     print("Counting solutions...")
     if save_solutions_file:
@@ -73,16 +75,15 @@ def main(puzzle_file, save_solutions_file=None):
     print(f"Proof done, took {time_proof_done - time_solve_done}")
 
 
-def _probability_internal(arg):
-    s, p = arg
+def _probability_internal(config):
     start = datetime.datetime.now()
-    puzzle = generate.random_puzzle(probability=p, size=s)
+    puzzle = config.generate()
     instance = solver.build(puzzle)
     solution_count = instance.model.solveAll(solution_limit=2)
     unique = solution_count == 1
     end = datetime.datetime.now()
     dt = (end - start).total_seconds()
-    return (s, p, unique, dt)
+    return solution_db.Solution(config=config, is_unique=unique, runtime=dt)
 
 
 class NCompleteColumn(rich.progress.ProgressColumn):
@@ -105,19 +106,14 @@ class CompletionRateColumn(rich.progress.ProgressColumn):
         return rich.text.Text(f"{speed:.3f}/s", style="progress.data.speed")
 
 
-@click.command
-@click.option("--p_min", type=float)
-@click.option("--p_max", type=float)
-@click.option("--p_steps", type=int)
-@click.option("--s_min", type=int)
-@click.option("--s_max", type=int)
-def probability(p_min: float, p_max: float, p_steps: int, s_min: int, s_max: int):
+def _solve_random_nonograms(
+    config: generate.SampleConfig,
+    threads: int,
+    batch: int,
+):
     lowpriority()
-
-    solution_db.init()
-
     with (
-        multiprocessing.Pool(5) as pool,
+        multiprocessing.Pool(threads) as pool,
         rich.progress.Progress(
             rich.progress.TextColumn("[progress.description]{task.description}"),
             NCompleteColumn(),
@@ -126,19 +122,64 @@ def probability(p_min: float, p_max: float, p_steps: int, s_min: int, s_max: int
             rich.progress.SpinnerColumn(),
             speed_estimate_period=datetime.timedelta(minutes=10).total_seconds(),
         ) as prog,
+        contextlib.closing(solution_db.SolutionDb()) as db,
     ):
-        init_total = solution_db.get_solution_count()
+        existing_data = db.get_stats()
+        init_total = db.get_solution_count() or 0
         solve_task = prog.add_task(
             "Solving...", completed=init_total, start=True, total=None
         )
 
-        param_itr = more_itertools.repeatfunc(
-            generate.sample_config_uniform, None, p_min, p_max, p_steps, s_min, s_max
+        config_itr = more_itertools.repeatfunc(
+            config.uniform,
         )
-        result_itr = pool.imap_unordered(_probability_internal, param_itr, chunksize=1)
-        for r_s, r_p, r_unique, r_dt in result_itr:
-            solution_db.add_solution(prob=r_p, size=r_s, uniq=r_unique, runtime=r_dt)
-            prog.update(solve_task, advance=1)
+        result_itr = pool.imap_unordered(_probability_internal, config_itr, chunksize=1)
+        for batch in itertools.batched(result_itr, batch):
+            db.add_solutions(batch)
+            prog.update(solve_task, advance=len(batch))
+
+
+@click.command
+@click.option("--p_min", type=float)
+@click.option("--p_max", type=float)
+@click.option("--p_steps", type=int)
+@click.option("--s_min", type=int)
+@click.option("--s_max", type=int)
+@click.option("--threads", type=int, default=5)
+@click.option("--batch", type=int, default=1)
+def random_nonogram(
+    p_min: float,
+    p_max: float,
+    p_steps: int,
+    s_min: int,
+    s_max: int,
+    threads: int,
+    batch: int,
+):
+    _solve_random_nonograms(
+        generate.SampleConfig(p_min, p_max, p_steps, s_min, s_max),
+        threads,
+        batch,
+    )
+
+
+@click.command
+@click.option("--threads", type=int, default=5)
+@click.option("--batch", type=int, default=1)
+def continue_random_nonogram(threads: int, batch: int):
+    with contextlib.closing(solution_db.SolutionDb()) as db:
+        config, unmatched_probs, extra_probs = db.infer_config()
+    if unmatched_probs != 0 or extra_probs != 0:
+        print(config, unmatched_probs, extra_probs)
+        exit(1)
+
+    print("continuing with following configuration: ", config)
+
+    _solve_random_nonograms(
+        config,
+        threads,
+        batch,
+    )
 
 
 @click.command
