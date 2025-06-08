@@ -8,16 +8,25 @@ import pathlib
 import rich.progress
 import rich.table
 import rich.text
+import rich.live
+import rich.layout
+import rich.status
+import rich.console
 import click
 import sys
 import datetime
 import contextlib
-import itertools
+import matplotlib
+import cmasher  # noqa: F401
+
+from rich_heatmap import heatmap
 
 from nonogram import generate
+from nonogram import sampling
 from nonogram import xmlformat
 from nonogram import solver
 from nonogram import solution_db
+from nonogram import data
 
 MAX_SOLUTIONS = 1000
 
@@ -75,15 +84,15 @@ def main(puzzle_file, save_solutions_file=None):
     print(f"Proof done, took {time_proof_done - time_solve_done}")
 
 
-def _probability_internal(config):
+def _probability_internal(instance_config: data.InstanceConfig):
     start = datetime.datetime.now()
-    puzzle = config.generate()
+    puzzle = generate.generate(instance_config)
     instance = solver.build(puzzle)
     solution_count = instance.model.solveAll(solution_limit=2)
     unique = solution_count == 1
     end = datetime.datetime.now()
     dt = (end - start).total_seconds()
-    return solution_db.Solution(config=config, is_unique=unique, runtime=dt)
+    return data.Solution(config=instance_config, is_unique=unique, runtime=dt)
 
 
 class NCompleteColumn(rich.progress.ProgressColumn):
@@ -107,36 +116,27 @@ class CompletionRateColumn(rich.progress.ProgressColumn):
 
 
 def _solve_random_nonograms(
-    config: generate.SampleConfig,
+    sampler: sampling.Sampler,
     threads: int,
     batch: int,
 ):
     lowpriority()
+
     with (
         multiprocessing.Pool(threads) as pool,
-        rich.progress.Progress(
-            rich.progress.TextColumn("[progress.description]{task.description}"),
-            NCompleteColumn(),
-            CompletionRateColumn(),
-            rich.progress.TimeElapsedColumn(),
-            rich.progress.SpinnerColumn(),
-            speed_estimate_period=datetime.timedelta(minutes=10).total_seconds(),
-        ) as prog,
         contextlib.closing(solution_db.SolutionDb()) as db,
     ):
         existing_data = db.get_stats()
-        init_total = db.get_solution_count()
-        solve_task = prog.add_task(
-            "Solving...", completed=init_total, start=True, total=None
-        )
 
-        config_itr = more_itertools.repeatfunc(
-            config.uniform,
-        )
-        result_itr = pool.imap_unordered(_probability_internal, config_itr, chunksize=1)
-        for batch in itertools.batched(result_itr, batch):
-            db.add_solutions(batch)
-            prog.update(solve_task, advance=len(batch))
+        with rich.live.Live(render_progress(existing_data), auto_refresh=False) as live:
+            config_itr = more_itertools.repeatfunc(sampler.sample)
+            result_itr = pool.imap_unordered(
+                _probability_internal, config_itr, chunksize=1
+            )
+            for batch in more_itertools.ichunked(result_itr, batch):
+                db.add_solutions(batch)
+                existing_data = db.get_stats()
+                live.update(render_progress(existing_data), refresh=True)
 
 
 @click.command
@@ -156,10 +156,65 @@ def random_nonogram(
     threads: int,
     batch: int,
 ):
+    config = data.SamplerConfig(p_min, p_max, p_steps, s_min, s_max)
     _solve_random_nonograms(
-        generate.SampleConfig(p_min, p_max, p_steps, s_min, s_max),
+        sampling.UniformSampler(config),
         threads,
         batch,
+    )
+
+
+COLORMAP = matplotlib.colormaps["cmr.ember"]
+
+
+def render_progress(existing_data):
+    cells = []
+    for instance, solutions in existing_data.items():
+        cells.append(
+            heatmap.HeatmapCell(
+                instance.size,
+                instance.prob,
+                solutions.unique / solutions.total,
+                text=str(solutions.total),
+            )
+        )
+    hm = heatmap.Heatmap(cells, colormap=colormap, cell_padding=1, cell_width=5)
+
+    total_runs = sum(d.total for d in existing_data.values())
+    total_runtime = sum(
+        (d.runtime for d in existing_data.values()), start=datetime.timedelta()
+    )
+
+    progress = rich.text.Text.assemble(
+        "Solving...   ",
+        " ",
+        (str(total_runs), "green"),
+        " solves, ",
+        (str(total_runtime), "yellow"),
+        " CPU time",
+    )
+    legend = rich.text.Text()
+    legend.append("   p_unique   0.0 ")
+    for i in range(100):
+        v = i / 100
+        legend.append("█", style=rich.style.Style(color=colormap(v)))
+    legend.append(" 1.0")
+
+    return rich.console.Group(
+        "v Size       ◦ #solves          p_filled ->",
+        hm,
+        legend,
+        "",
+        progress,
+    )
+
+
+def colormap(value: float) -> tuple[float, float, float]:
+    rgba = COLORMAP(value)
+    return rich.color.Color.from_rgb(
+        255 * rgba[0],
+        255 * rgba[1],
+        255 * rgba[2],
     )
 
 
@@ -168,15 +223,19 @@ def random_nonogram(
 @click.option("--batch", type=int, default=1)
 def continue_random_nonogram(threads: int, batch: int):
     with contextlib.closing(solution_db.SolutionDb()) as db:
-        config, unmatched_probs, extra_probs = db.infer_config()
+        sampler_config, unmatched_probs, extra_probs = db.infer_config()
+        existing_data = db.get_stats()
+
     if unmatched_probs != 0 or extra_probs != 0:
         print(config, unmatched_probs, extra_probs)
         exit(1)
 
-    print("continuing with following configuration: ", config)
+    print("continuing with following configuration: ", sampler_config)
+
+    print(make_heatmap(existing_data))
 
     _solve_random_nonograms(
-        config,
+        sampling.FillGapsSampler(sampler_config, existing_data),
         threads,
         batch,
     )

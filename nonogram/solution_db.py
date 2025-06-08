@@ -1,18 +1,11 @@
 import sqlite3
-import dataclasses
 from typing import Iterable
 import math
+import datetime
 
-from nonogram import generate
+from nonogram import data
 
 DB_NAME = "data.sqlite3"
-
-
-@dataclasses.dataclass
-class Solution:
-    config: generate.Configuration
-    is_unique: bool
-    runtime: float
 
 
 class SolutionDb:
@@ -29,7 +22,7 @@ class SolutionDb:
             )
         )
 
-    def infer_config(self) -> tuple[generate.Configuration, int, int]:
+    def infer_config(self) -> tuple[data.SamplerConfig, int, int]:
         cur = self.con.cursor()
 
         res = cur.execute("SELECT DISTINCT size FROM solves")
@@ -44,7 +37,7 @@ class SolutionDb:
         best = None
         best_score = (math.inf, math.inf)
         for p_steps in range(3 * len(probs)):
-            hypothesis = generate.SampleConfig(0.0, 1.0, p_steps, s_min, s_max)
+            hypothesis = data.SamplerConfig(0.0, 1.0, p_steps, s_min, s_max)
             hyp_probs = set(hypothesis.all_probs())
             unmatched = probs - hyp_probs
             extra = hyp_probs - probs
@@ -63,9 +56,15 @@ class SolutionDb:
         res = cur.execute("select sum(total) from solves")
         return res.fetchone()[0] or 0
 
+    def get_total_runtime(self) -> datetime.timedelta:
+        cur = self.con.cursor()
+        res = cur.execute("select sum(seconds) from solves")
+        s = res.fetchone()[0] or 0
+        return datetime.timedelta(seconds=s)
+
     def add_solutions(
         self,
-        solns: Iterable[Solution],
+        solns: Iterable[data.Solution],
     ):
         self.con.executemany(
             " ".join(
@@ -88,14 +87,17 @@ class SolutionDb:
                 for s in solns
             ),
         )
+        self.con.commit()
 
-    def get_stats(self) -> dict[generate.Configuration, float]:
-        result: dict[generate.Configuration, float] = {}
+    def get_stats(self) -> dict[data.InstanceConfig, data.Solutions]:
+        result: dict[data.Configuration, data.Solutions] = {}
         cur = self.con.cursor()
-        res = cur.execute(
-            "SELECT size, probability, CAST(uniq AS REAL) / CAST(total AS REAL) FROM solves"
-        )
-        return {
-            generate.Configuration(size=size, prob=probability): p_unique
-            for size, probability, p_unique in res
-        }
+        res = cur.execute("SELECT size, probability, uniq, total, seconds FROM solves")
+        result = {}
+        for size, probability, unique, total, seconds in res.fetchall():
+            conf = data.InstanceConfig(size=size, prob=probability)
+            d = data.Solutions(
+                unique=unique, total=total, runtime=datetime.timedelta(seconds=seconds)
+            )
+            result[conf] = d
+        return result
