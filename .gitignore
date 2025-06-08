@@ -180,3 +180,5 @@ data.csv
 *.sqlite3
 *.sqlite3-journal
 *.sqlite3.bak
+
+*.xml

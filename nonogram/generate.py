@@ -26,5 +26,7 @@ def generate(config: data.InstanceConfig) -> game.Puzzle:
             if value:
                 col_hints.append(len(list(group)))
         cols.append(col_hints)
-    result = game.Puzzle({game.Dim.ROW: rows, game.Dim.COL: cols}, grid)
+    result = game.Puzzle(
+        config=config, hints={game.Dim.ROW: rows, game.Dim.COL: cols}, solution=grid
+    )
     return result

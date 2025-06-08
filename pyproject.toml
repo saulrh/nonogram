@@ -13,6 +13,8 @@ dependencies = [
   "lxml>=5.4.0",
   "matplotlib>=3.10.3",
   "more-itertools>=10.7.0",
+  "natsort>=8.4.0",
+  "pysocks>=1.7.1",
   "requests>=2.32.3",
   "rich>=14.0.0",
   "rich-heatmap>=0.1.2",
@@ -21,11 +23,11 @@ dependencies = [
 
 
 [project.scripts]
-solve_nonogram = "nonogram.cli:main"
+solve_nonogram = "nonogram.cli:solve_nonogram"
 get_nonogram = "nonogram.get_puzzle:main"
-benchmark_nonogram = "nonogram.cli:benchmark"
-random_nonogram = "nonogram.cli:random_nonogram"
-continue_random_nonogram = "nonogram.cli:continue_random_nonogram"
+benchmark_nonogram = "nonogram.benchmark:main"
+solve_random_nonograms = "nonogram.solve_random_nonograms:solve_random_nonograms"
+continue_random_nonograms = "nonogram.solve_random_nonograms:continue_random_nonograms"
 
 [build-system]
 requires = ["hatchling >= 1.26"]
@@ -42,3 +44,11 @@ dev = [
 
 [tool.uv.sources]
 rich-heatmap = { path = "../rich_heatmap" }
+
+[[tool.mypy.overrides]]
+module = ["cpmpy.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["cmasher"]
+ignore_missing_imports = true

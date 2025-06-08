@@ -2,21 +2,80 @@ import cpmpy
 import cpmpy.expressions.variables
 import itertools
 import dataclasses
-import more_itertools
+import datetime
+import time
 
 from nonogram import game
+from nonogram import data
 
 
 @dataclasses.dataclass
 class Instance:
     puzzle: game.Puzzle
     model: cpmpy.solvers.ortools.CPM_ortools
+    build_time: datetime.timedelta = datetime.timedelta()
     variables: dict[
         tuple[game.Dim, int, int], cpmpy.expressions.variables._IntVarImpl
     ] = dataclasses.field(default_factory=dict)
 
+    def solve(self, test_uniqueness: bool) -> data.Solution:
+        time_solve_start = time.process_time()
+        has_solution = self.model.solve()
+        time_solve_end = time.process_time()
+        solve_time = datetime.timedelta(seconds=time_solve_end - time_solve_start)
+        if not has_solution:
+            raise RuntimeError("No solution found")
+
+        if test_uniqueness:
+            num_solutions = self.model.solveAll(solution_limit=2)
+        else:
+            num_solutions = 0
+
+        return data.Solution(
+            is_unique=num_solutions == 1,
+            solve_time=solve_time,
+            grid=self.extract_grid(),
+            config=self.puzzle.config,
+        )
+
+    def solve_all(self, solution_limit: int) -> data.Solutions:
+        grids = []
+
+        def solution_cb():
+            grids.append(self.extract_grid())
+
+        time_solve_start = time.process_time()
+        self.model.solveAll(display=solution_cb, solution_limit=solution_limit)
+        time_solve_end = time.process_time()
+        solve_all_time = datetime.timedelta(seconds=time_solve_end - time_solve_start)
+
+        return data.Solutions(
+            solve_all_time=solve_all_time,
+            grids=grids,
+        )
+
+    def extract_grid(self) -> list[list[bool]]:
+        result = []
+        for row_idx, row_hints in enumerate(self.puzzle.hints[game.Dim.ROW]):
+            row = []
+            for col_idx, col_hints in enumerate(self.puzzle.hints[game.Dim.COL]):
+                row_variables = [
+                    self.variables[game.Dim.ROW, row_idx, i]
+                    for i in range(len(row_hints))
+                ]
+                row_hint_covers = any(
+                    ((rv.value() + rh) > col_idx) & (col_idx >= rv.value())
+                    for rv, rh in zip(row_variables, row_hints)
+                )
+
+                row.append(row_hint_covers)
+            result.append(row)
+        return result
+
 
 def build(puzzle: game.Puzzle):
+    time_build_start = time.process_time()
+
     instance = Instance(puzzle, cpmpy.SolverLookup.get("ortools"))
 
     # let's try the representation where we store the index of each
@@ -79,59 +138,7 @@ def build(puzzle: game.Puzzle):
                 row_hint_covers == col_hint_covers
             )
 
-    if puzzle.solution is not None:
-        hint_vars = []
-        hint_vals = []
-        for row_idx, row in enumerate(puzzle.solution):
-            hint_idx = 0
-            pos = 0
-            for value, group in itertools.groupby(row):
-                if value:
-                    hint_vars.append(
-                        instance.variables[game.Dim.ROW, row_idx, hint_idx]
-                    )
-                    hint_vals.append(pos)
-                    hint_idx += 1
-                pos += sum(1 for _ in group)
-        solution_t = more_itertools.transpose(puzzle.solution)
-        for col_idx, col in enumerate(solution_t):
-            hint_idx = 0
-            pos = 0
-            for value, group in itertools.groupby(col):
-                if value:
-                    hint_vars.append(
-                        instance.variables[game.Dim.COL, col_idx, hint_idx]
-                    )
-                    hint_vals.append(pos)
-                    hint_idx += 1
-                pos += sum(1 for _ in group)
-        instance.model.solution_hint(hint_vars, hint_vals)
+    time_build_end = time.process_time()
+    instance.build_time = datetime.timedelta(seconds=time_build_end - time_build_start)
 
     return instance
-
-
-def print_solution(stream, instance):
-    for row_idx, row_hints in enumerate(instance.puzzle.hints[game.Dim.ROW]):
-        for col_idx, col_hints in enumerate(instance.puzzle.hints[game.Dim.COL]):
-            row_variables = [
-                instance.variables[game.Dim.ROW, row_idx, i]
-                for i in range(len(row_hints))
-            ]
-            col_variables = [
-                instance.variables[game.Dim.COL, col_idx, i]
-                for i in range(len(col_hints))
-            ]
-            row_hint_covers = any(
-                ((rv.value() + rh) > col_idx) & (col_idx >= rv.value())
-                for rv, rh in zip(row_variables, row_hints)
-            )
-            col_hint_covers = any(
-                ((cv.value() + ch) > row_idx) & (row_idx >= cv.value())
-                for cv, ch in zip(col_variables, col_hints)
-            )
-
-            if row_hint_covers:
-                stream.write("█")
-            else:
-                stream.write(" ")
-        stream.write("\n")

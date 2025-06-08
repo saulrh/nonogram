@@ -11,28 +11,29 @@ class Sampler(abc.ABC):
     def sample(self) -> data.InstanceConfig: ...
 
     @abc.abstractmethod
-    def update(self, existing_data: dict[data.InstanceConfig, data.Solutions]): ...
+    def update(
+        self, existing_data: dict[data.InstanceConfig, data.SolutionStatistics]
+    ): ...
 
 
 @dataclasses.dataclass
-class UniformSampler:
+class UniformSampler(Sampler):
     config: data.SamplerConfig
 
     def sample(self) -> data.InstanceConfig:
         return random.choice(self.config.all_pts())
 
-    def update(self, existing_data: dict[data.InstanceConfig, data.Solutions]):
+    def update(self, existing_data: dict[data.InstanceConfig, data.SolutionStatistics]):
         pass
 
 
 @dataclasses.dataclass
-class FillGapsSampler:
+class FillGapsSampler(Sampler):
     config: data.SamplerConfig
-    existing: dict[data.InstanceConfig, data.Solutions]
+    existing: dict[data.InstanceConfig, data.SolutionStatistics]
 
     def sample(self) -> data.InstanceConfig:
         pts = self.config.all_pts()
-        biggest = max(s.total for s in self.existing.values())
         totals = collections.defaultdict(lambda: 0)
         for pt in self.config.all_pts():
             if pt in self.existing:
@@ -41,5 +42,5 @@ class FillGapsSampler:
         pts.sort(key=lambda pt: totals[pt])
         return random.choices(pts, weights=range(len(pts)), k=1)[0]
 
-    def update(self, existing_data: dict[data.InstanceConfig, data.Solutions]):
+    def update(self, existing_data: dict[data.InstanceConfig, data.SolutionStatistics]):
         self.existing_data = existing_data

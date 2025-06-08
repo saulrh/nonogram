@@ -1,16 +1,15 @@
 import sqlite3
 from typing import Iterable
-import math
 import datetime
+import sys
+import pathlib
 
 from nonogram import data
 
-DB_NAME = "data.sqlite3"
-
 
 class SolutionDb:
-    def __init__(self):
-        self.con = sqlite3.connect(DB_NAME)
+    def __init__(self, db_path: pathlib.Path):
+        self.con = sqlite3.connect(db_path)
         self.con.execute(
             " ".join(
                 [
@@ -35,7 +34,7 @@ class SolutionDb:
         for (res,) in res.fetchall():
             probs.add(res)
         best = None
-        best_score = (math.inf, math.inf)
+        best_score = (sys.maxsize, sys.maxsize)
         for p_steps in range(3 * len(probs)):
             hypothesis = data.SamplerConfig(0.0, 1.0, p_steps, s_min, s_max)
             hyp_probs = set(hypothesis.all_probs())
@@ -45,6 +44,7 @@ class SolutionDb:
             if score < best_score:
                 best = hypothesis
                 best_score = score
+        assert best is not None, "no data in database, infer_config failed"
         return best, best_score[0], best_score[1]
 
     def close(self):
@@ -64,7 +64,7 @@ class SolutionDb:
 
     def add_solutions(
         self,
-        solns: Iterable[data.Solution],
+        solutions: Iterable[data.Solution],
     ):
         self.con.executemany(
             " ".join(
@@ -82,21 +82,21 @@ class SolutionDb:
                     "prob": s.config.prob,
                     "size": s.config.size,
                     "uniq": 1 if s.is_unique else 0,
-                    "time": s.runtime,
+                    "time": s.solve_time.total_seconds(),
                 }
-                for s in solns
+                for s in solutions
             ),
         )
         self.con.commit()
 
-    def get_stats(self) -> dict[data.InstanceConfig, data.Solutions]:
-        result: dict[data.Configuration, data.Solutions] = {}
+    def get_stats(self) -> dict[data.InstanceConfig, data.SolutionStatistics]:
+        result: dict[data.InstanceConfig, data.SolutionStatistics] = {}
         cur = self.con.cursor()
         res = cur.execute("SELECT size, probability, uniq, total, seconds FROM solves")
         result = {}
         for size, probability, unique, total, seconds in res.fetchall():
             conf = data.InstanceConfig(size=size, prob=probability)
-            d = data.Solutions(
+            d = data.SolutionStatistics(
                 unique=unique, total=total, runtime=datetime.timedelta(seconds=seconds)
             )
             result[conf] = d

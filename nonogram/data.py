@@ -1,10 +1,11 @@
 import dataclasses
 import datetime
 import itertools
+from typing import Optional
 
 
 @dataclasses.dataclass
-class Solutions:
+class SolutionStatistics:
     unique: int
     total: int
     runtime: datetime.timedelta
@@ -41,8 +42,6 @@ class SamplerConfig:
         return [self.p_idx_to_p(p_idx) for p_idx in prob_idxs]
 
     def all_pts(self) -> list[InstanceConfig]:
-        sizes = self.all_sizes()
-        probs = self.all_probs()
         return [
             InstanceConfig(size=s, prob=p)
             for s, p in itertools.product(self.all_sizes(), self.all_probs())
@@ -51,6 +50,13 @@ class SamplerConfig:
 
 @dataclasses.dataclass(frozen=True)
 class Solution:
-    config: InstanceConfig
     is_unique: bool
-    runtime: float
+    solve_time: datetime.timedelta
+    config: InstanceConfig
+    grid: Optional[list[list[bool]]] = None
+
+
+@dataclasses.dataclass(frozen=True)
+class Solutions:
+    solve_all_time: datetime.timedelta
+    grids: list[list[list[bool]]]

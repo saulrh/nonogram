@@ -55,24 +55,23 @@
 #   Hide                            Hide the subsequent commands from the output
 #   Show                            Show the subsequent commands in the output
 
-Output images/random_nonogram_demo.gif
+Output images/benchmark_rich_demo.gif
 
-Require uv
+Require echo
 
 Set Shell "bash"
-Set FontSize 12
+Set FontSize 24
 Set Width 1200
-Set Height 500
-Set WindowBar Colorful
-Set Margin 20
-Set MarginFill "#000000"
-Set BorderRadius 10
+Set Height 900
+Source demos/style.tape
 
-Type "uv run random_nonogram --p_min=0.0 --p_max=1.0 --p_steps=20 --s_min=3 --s_max=10 --threads=15 --batch=100"
+Type "uv run benchmark_nonogram --format=rich --threads=10 --sort_by=id"
 Sleep 500ms
 Enter
 
-Sleep 60s
+Wait+Screen@30s /Done!/
+
+Sleep 3s
 
 
 # Local Variables:
