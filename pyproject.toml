@@ -1,36 +1,44 @@
-[tool.poetry]
+[project]
 name = "nonogram"
 version = "0.1.0"
 description = "Solves nonograms by constraint satisfaction"
-authors = ["Saul Reynolds-Haertle <saul@saulrh.com>"]
+authors = [{ name = "Saul Reynolds-Haertle", email = "saul@saulrh.com" }]
 readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "beautifulsoup4>=4.13.4",
+  "click>=8.2.1",
+  "cmasher>=1.9.2",
+  "cpmpy>=0.9.25",
+  "lxml>=5.4.0",
+  "matplotlib>=3.10.3",
+  "more-itertools>=10.7.0",
+  "requests>=2.32.3",
+  "rich>=14.0.0",
+  "rich-heatmap>=0.1.2",
+  "setuptools==66.1.1",
+]
 
-[tool.poetry.dependencies]
-python = "^3.11"
-rich = "^13.7.1"
-cpmpy = "^0.9.19"
-click = "^8.1.7"
-beautifulsoup4 = "^4.12.3"
-lxml = "^5.1.0"
-requests = "^2.31.0"
-setuptools = "^80.9.0"
-more-itertools = "^10.7.0"
 
-[tool.poetry.scripts]
+[project.scripts]
 solve_nonogram = "nonogram.cli:main"
 get_nonogram = "nonogram.get_puzzle:main"
 benchmark_nonogram = "nonogram.cli:benchmark"
 random_nonogram = "nonogram.cli:random_nonogram"
 continue_random_nonogram = "nonogram.cli:continue_random_nonogram"
 
-
-[tool.poetry.group.dev.dependencies]
-python-lsp-server = "^1.12.2"
-pylsp-rope = "^0.1.17"
-pytype = "^2024.10.11"
-mypy = "^1.16.0"
-types-requests = "^2.32.0.20250602"
-
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling >= 1.26"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+  "mypy>=1.16.0",
+  "pylsp-rope>=0.1.17",
+  "python-lsp-server>=1.12.2",
+  "pytype>=2024.10.11",
+  "types-requests>=2.32.0.20250602",
+]
+
+[tool.uv.sources]
+rich-heatmap = { path = "../rich_heatmap" }
