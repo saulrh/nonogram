@@ -148,6 +148,7 @@ def make_table(from_rows):
 @contextlib.contextmanager
 def make_rich_writer(sorter: Sorter):
     status = rich.status.Status("Running...")
+    start_time = datetime.datetime.now()
     with rich.live.Live(
         make_table([]), refresh_per_second=10, vertical_overflow="visible"
     ) as live:
@@ -163,8 +164,14 @@ def make_rich_writer(sorter: Sorter):
             )
 
         yield write_row
-    status.stop()
-    print("Done!")
+        status.stop()
+        end_time = datetime.datetime.now()
+        live.update(
+            rich.console.Group(
+                    make_table(sorter(rows)),
+                    rich.text.Text(f"Done! Took {end_time - start_time}", "green")
+                )
+        )
 
 
 @contextlib.contextmanager

@@ -71,7 +71,7 @@ Enter
 
 Wait+Screen@30s /Done!/
 
-Sleep 3s
+Sleep 6s
 
 
 # Local Variables:
