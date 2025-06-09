@@ -35,7 +35,7 @@ Run `benchmark_nonogram` to solve every supported puzzle in the
 `puzzles/` directory and report the runtime. Output options include
 rich and csv:
 
-![uv run benchmark_nonogram --format=rich --sort_by=id](images/benchmark_rich.gif)
+![uv run benchmark_nonogram --format=rich --sort_by=id](images/benchmark_rich_demo.gif)
 
 ![uv run benchmark_nonogram --format=csv](images/benchmark_csv.png)
 
