@@ -70,7 +70,7 @@ Type "rm -f /tmp/random_nonograms_demo.sqlite3"
 Enter
 Show
 
-Type "uv run solve_random_nonograms --p_min=0.0 --p_max=1.0 --p_steps=20 --s_min=3 --s_max=10 --threads=15 --batch=100 --db_path=/tmp/random_nonograms_demo.sqlite3"
+Type "uv run solve_random_nonograms --p_min=0.0 --p_max=1.0 --p_steps=20 --s_min=3 --s_max=10 --threads=15 --batch=10 --db_path=/tmp/random_nonograms_demo.sqlite3"
 Sleep 500ms
 Enter
 

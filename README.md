@@ -20,14 +20,14 @@ This will create an XML file in the `puzzles` directory.
 
 Run `solve_nonogram` to solve a downloaded puzzle XML:
 
-![uv run solve_nonogram puzzles/2.xml](images/solve-2.xml)
+![uv run solve_nonogram puzzles/2.xml](images/solve-2.png)
 
 If a nonogram does not have a unique solution, you'll get one of the
 solutions at random for illustration and, if a solution was provided
 to check against, whether any of the found solutions matches the given
 solution:
 
-![uv run solve_nonogram puzzles/108.xml](images/solve-108.xml)
+![uv run solve_nonogram puzzles/108.xml](images/solve-108.png)
 
 # Other tools
 
